@@ -1,4 +1,4 @@
-from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, accuracy_score
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, accuracy_score, PrecisionRecallDisplay, precision_recall_curve, precision_score, recall_score, f1_score
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -43,6 +43,7 @@ if not unsure:
     
 y_true = df['true_label']
 y_pred = df['pred_label']
+y_score = df['pred_score']
 
 cls_labels = sorted(set(y_true) | set(y_pred))
 
@@ -226,3 +227,58 @@ def plot_confusion_accuracy_matrix(y_true, y_pred, cls_labels, normalise=True, t
 # Appel des fonctions
 plot_confusion_accuracy_matrix(y_true, y_pred, cls_labels, normalise=False, title='Confusion matrix', cmap=plt.cm.Blues, figsize=None, show=True)
 plot_confusion_accuracy_matrix(y_true, y_pred, cls_labels, normalise=True, title='Confusion matrix', cmap=plt.cm.Blues, figsize=None, show=True)
+
+
+# Precision recall curve
+correct_pred = [int(true == pred) for true, pred in zip(y_true, y_pred)]
+prec, recall, _ = precision_recall_curve(correct_pred, y_score)
+
+PrecisionRecallDisplay(precision=prec, recall=recall).plot()
+plt.title('Precision-Recall Curve')
+plt.savefig("Precision_Recall_curve.pdf", facecolor='white', dpi=300, bbox_inches='tight')
+plt.show()
+
+# Precision, recall, f1 confidence curves
+def generate_metrics_confidence_curve():
+    x = [intervalle/200 for intervalle in range(0, 205, 5)]
+    precision = []
+    recall = []
+    f1 = []
+    
+    for threshold in x:
+        y_pred_temp = y_pred.copy()
+        y_T_F = y_score >= threshold
+        
+        for i in range(len(y_T_F)):
+            if not y_T_F[i]:
+                y_pred_temp[i] = 'unsure'
+        
+        precision.append(precision_score(y_true, y_pred_temp, average='micro'))
+        recall.append(recall_score(y_true, y_pred_temp, average='micro'))
+        f1.append(f1_score(y_true, y_pred_temp, average='micro'))
+        
+        #### TODO Bizarre ça sort exactement les mêmes valeurs
+        
+        ##### TODO faire comme YOLO ?? une courbe par classe ??
+        
+    return x, precision, recall, f1
+        
+x, precision, recall, f1 = generate_metrics_confidence_curve()
+
+#### TODO Bizarre ça sort exactement les mêmes valeurs
+#### TODO Bizarre ça sort exactement les mêmes valeurs
+#### TODO Bizarre ça sort exactement les mêmes valeurs
+
+def plot_confidence_curve(metric, metric_name):
+    plt.plot(x, metric)
+    plt.title(f'{metric_name}-Confidence Curve')
+    plt.xlabel('Confidence')
+    plt.ylabel(f'{metric_name}')
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.savefig(f"{metric_name}_confidence_curve.pdf", facecolor='white', dpi=300, bbox_inches='tight')
+    plt.show()
+
+plot_confidence_curve(precision, 'Precision')
+plot_confidence_curve(recall, 'Recall')
+plot_confidence_curve(f1, 'F1')
