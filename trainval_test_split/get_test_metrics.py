@@ -45,6 +45,8 @@ y_true = df['true_label']
 y_pred = df['pred_label']
 y_score = df['pred_score']
 
+labels = list(set(y_true))
+
 cls_labels = sorted(set(y_true) | set(y_pred))
 
 def get_text_width(txt):
@@ -229,54 +231,59 @@ plot_confusion_accuracy_matrix(y_true, y_pred, cls_labels, normalise=False, titl
 plot_confusion_accuracy_matrix(y_true, y_pred, cls_labels, normalise=True, title='Confusion matrix', cmap=plt.cm.Blues, figsize=None, show=True)
 
 
-# Precision recall curve
+# Precision recall curve ########## TODO faire classe par classe
 correct_pred = [int(true == pred) for true, pred in zip(y_true, y_pred)]
 prec, recall, _ = precision_recall_curve(correct_pred, y_score)
 
 PrecisionRecallDisplay(precision=prec, recall=recall).plot()
 plt.title('Precision-Recall Curve')
+print('saving precision recall curve')
 plt.savefig("Precision_Recall_curve.pdf", facecolor='white', dpi=300, bbox_inches='tight')
 plt.show()
 
 # Precision, recall, f1 confidence curves
 def generate_metrics_confidence_curve():
     x = [intervalle/200 for intervalle in range(0, 205, 5)]
-    precision = []
-    recall = []
-    f1 = []
+
+    labels_recall = [*labels, 'unsure']
+    
+    precision = {key: [] for key in labels}
+    recall = {key: [] for key in labels}
+    f1 = {key: [] for key in labels}
     
     for threshold in x:
-        y_pred_temp = y_pred.copy()
         y_T_F = y_score >= threshold
+        
+        y_pred_temp = y_pred.copy()
         
         for i in range(len(y_T_F)):
             if not y_T_F[i]:
                 y_pred_temp[i] = 'unsure'
         
-        precision.append(precision_score(y_true, y_pred_temp, average='micro'))
-        recall.append(recall_score(y_true, y_pred_temp, average='micro'))
-        f1.append(f1_score(y_true, y_pred_temp, average='micro'))
-        
-        #### TODO Bizarre ça sort exactement les mêmes valeurs
-        
-        ##### TODO faire comme YOLO ?? une courbe par classe ??
+        for idx, key in enumerate(labels):
+            precision_scores = precision_score(y_true, y_pred_temp, average=None)
+            recall_scores = recall_score(y_true, y_pred_temp, average=None, zero_division=0)
+            f1_scores = f1_score(y_true, y_pred_temp, average=None, zero_division=0)
+            
+            precision[key].append(precision_scores[idx])
+            recall[key].append(recall_scores[idx])
+            f1[key].append(f1_scores[idx])
         
     return x, precision, recall, f1
         
 x, precision, recall, f1 = generate_metrics_confidence_curve()
 
-#### TODO Bizarre ça sort exactement les mêmes valeurs
-#### TODO Bizarre ça sort exactement les mêmes valeurs
-#### TODO Bizarre ça sort exactement les mêmes valeurs
-
-def plot_confidence_curve(metric, metric_name):
-    plt.plot(x, metric)
+def plot_confidence_curve(metric_dict, metric_name):
+    for key in metric_dict:
+        plt.plot(x, metric_dict[key], label=key)
+    plt.legend()
     plt.title(f'{metric_name}-Confidence Curve')
     plt.xlabel('Confidence')
     plt.ylabel(f'{metric_name}')
     plt.xlim(0, 1)
     plt.ylim(0, 1)
-    plt.savefig(f"{metric_name}_confidence_curve.pdf", facecolor='white', dpi=300, bbox_inches='tight')
+    print(f'saving {metric_name} confidence curve')
+    plt.savefig(f'{metric_name}_confidence_curve.pdf', facecolor='white', dpi=300, bbox_inches='tight')
     plt.show()
 
 plot_confidence_curve(precision, 'Precision')
