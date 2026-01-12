@@ -1,4 +1,4 @@
-from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, accuracy_score, PrecisionRecallDisplay, precision_recall_curve, precision_score, recall_score, f1_score
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, accuracy_score, PrecisionRecallDisplay, precision_recall_curve, precision_score, recall_score, f1_score, accuracy_score
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,14 +13,14 @@ import argparse
 # Configuration du parser
 parser = argparse.ArgumentParser(description="Génère une matrice de confusion avec ou sans la classe 'unsure'.")
 parser.add_argument(
-    "--wo_unsure",
-    action="store_false",  # Si présent, la variable sera False, sinon True
+    "--w_unsure",
+    action="store_true",  # Si présent, la variable sera False, sinon True
     help="Exclure la classe 'unsure' dans les calculs et les graphiques."
 )
 args = parser.parse_args()
 
 # Utilisation de l'argument
-unsure = args.wo_unsure  # True si --unsure est passé, False sinon
+unsure = args.w_unsure  # True si --unsure est passé, False sinon
 
 df = pd.read_csv('test_labels_w_pred.csv')
 unsure_preds = df[df['pred_label']=='unsure']
@@ -244,12 +244,11 @@ plt.show()
 # Precision, recall, f1 confidence curves
 def generate_metrics_confidence_curve():
     x = [intervalle/200 for intervalle in range(0, 205, 5)]
-
-    labels_recall = [*labels, 'unsure']
     
     precision = {key: [] for key in labels}
     recall = {key: [] for key in labels}
     f1 = {key: [] for key in labels}
+    accuracy = {key: [] for key in labels}
     
     for threshold in x:
         y_T_F = y_score >= threshold
@@ -265,13 +264,21 @@ def generate_metrics_confidence_curve():
             recall_scores = recall_score(y_true, y_pred_temp, average=None, zero_division=0)
             f1_scores = f1_score(y_true, y_pred_temp, average=None, zero_division=0)
             
+            mask = y_true == key
+            y_true_acc = y_true[mask]
+            y_pred_temp_acc = y_pred_temp[mask]
+            
+            mask_unsure = y_pred_temp_acc != 'unsure'
+            accuracy_scores = accuracy_score(y_true_acc[mask_unsure], y_pred_temp_acc[mask_unsure])
+            
             precision[key].append(precision_scores[idx])
             recall[key].append(recall_scores[idx])
             f1[key].append(f1_scores[idx])
+            accuracy[key].append(accuracy_scores)
         
-    return x, precision, recall, f1
+    return x, precision, recall, f1, accuracy
         
-x, precision, recall, f1 = generate_metrics_confidence_curve()
+x, precision, recall, f1, accuracy = generate_metrics_confidence_curve()
 
 def plot_confidence_curve(metric_dict, metric_name):
     for key in metric_dict:
@@ -289,3 +296,4 @@ def plot_confidence_curve(metric_dict, metric_name):
 plot_confidence_curve(precision, 'Precision')
 plot_confidence_curve(recall, 'Recall')
 plot_confidence_curve(f1, 'F1')
+plot_confidence_curve(accuracy, 'Accuracy')
